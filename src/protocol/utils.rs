@@ -196,6 +196,7 @@ pub fn parse_shard_pubsub_frame(frame: &Resp3Frame) -> Option<Message> {
     channel,
     value,
     kind: MessageKind::SMessage,
+    pattern: None,
   })
 }
 
@@ -233,7 +234,7 @@ pub fn parse_message_kind(frame: &Resp3Frame) -> Result<MessageKind, RedisError>
 }
 
 /// Parse the channel and value fields from a pubsub frame.
-pub fn parse_message_fields(frame: &Resp3Frame) -> Result<(Str, RedisValue), RedisError> {
+pub fn parse_message_fields(frame: &Resp3Frame) -> Result<(Str, RedisValue, Option<Str>), RedisError> {
   let mut frames = match frame.clone() {
     Resp3Frame::Array { data, .. } => data,
     Resp3Frame::Push { data, .. } => data,
@@ -248,9 +249,14 @@ pub fn parse_message_fields(frame: &Resp3Frame) -> Result<(Str, RedisValue), Red
     .ok_or(RedisError::new(RedisErrorKind::Protocol, "Invalid pubsub channel."))?;
   let channel =
     frame_to_str(&channel).ok_or(RedisError::new(RedisErrorKind::Protocol, "Failed to parse channel."))?;
+  let pattern = frames
+      .pop()
+      .ok_or(RedisError::new(RedisErrorKind::Protocol, "Invalid pubsub pattern."))?;
+  let pattern =
+      frame_to_str(&pattern).ok_or(RedisError::new(RedisErrorKind::Protocol, "Failed to parse pattern."))?;
   let value = frame_to_results(value)?;
 
-  Ok((channel, value))
+  Ok((channel, value, Some(pattern)))
 }
 
 /// Convert the frame to a `(channel, message)` tuple from the pubsub interface.
@@ -260,8 +266,8 @@ pub fn frame_to_pubsub(frame: Resp3Frame) -> Result<Message, RedisError> {
   }
 
   let kind = parse_message_kind(&frame)?;
-  let (channel, value) = parse_message_fields(&frame)?;
-  Ok(Message { kind, channel, value })
+  let (channel, value, pattern) = parse_message_fields(&frame)?;
+  Ok(Message { kind, channel, value, pattern })
 }
 
 /// Attempt to parse a RESP3 frame as a pubsub message in the RESP2 format.
