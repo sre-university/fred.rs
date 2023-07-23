@@ -251,6 +251,8 @@ pub struct Message {
   pub value:   RedisValue,
   /// The type of message subscription.
   pub kind:    MessageKind,
+  /// received pattern for pubsub (resp3)
+  pub pattern: Option<Str>
 }
 
 pub struct KeyScanInner {
